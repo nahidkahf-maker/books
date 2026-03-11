@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>StoryBook Tales</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Fredoka', sans-serif;
+      overflow: hidden; height: 100vh; width: 100vw;
+      background: linear-gradient(135deg, #fce4ec 0%, #e3f2fd 40%, #f3e5f5 80%, #e8f5e9 100%);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      user-select: none;
+    }
+    @keyframes gradientBG {
+      0%   { background-position: 0%   50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0%   50%; }
+    }
+
+    /* Blobs */
+    .bg-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .blob { position: absolute; border-radius: 50%; opacity: 0.4; animation: floatBlob 6s ease-in-out infinite; }
+    .blob:nth-child(1) { top:  8%; left:  6%; width: 96px; height: 96px; background: #f8bbd0; }
+    .blob:nth-child(2) { top: 15%; right: 7%; width: 64px; height: 64px; background: #fff59d; animation-delay: 1s; }
+    .blob:nth-child(3) { bottom: 22%; left: 8%; width: 80px; height: 80px; background: #e1bee7; animation-delay: 2s; }
+    .blob:nth-child(4) { bottom: 12%; right: 10%; width: 48px; height: 48px; background: #c8e6c9; animation-delay: 3s; }
+    .blob:nth-child(5) { top: 45%; left:  2%; width: 40px; height: 40px; background: #bbdefb; animation-delay: 4s; }
+    .blob:nth-child(6) { top: 55%; right: 3%; width: 56px; height: 56px; background: #ffccbc; animation-delay: 5s; }
+    @keyframes floatBlob {
+      0%, 100% { transform: translateY(0)    scale(1);    }
+      50%       { transform: translateY(-15px) scale(1.05); }
+    }
+
+    /* App layout */
+    #app {
+      position: relative; z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; width: 100%;
+    }
+
+    /* Page indicator */
+    .page-indicator {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 30; padding: 6px 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.6);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      font-size: 14px; font-weight: 600; color: #374151;
+      letter-spacing: 0.05em;
+      white-space: nowrap; max-width: 70vw;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Book wrapper */
+    .book-wrapper {
+      position: relative; margin-bottom: 100px;
+      perspective: 1500px;
+      width: min(85vw, 300px); height: min(65vh, 480px);
+    }
+    .book-wrapper.zoomed {
+      width: min(92vw, 420px); height: min(80vh, 650px);
+      transition: width 0.3s ease, height 0.3s ease;
+    }
+    .book-shadow {
+      position: absolute; bottom: -15px; left: 10%; width: 80%; height: 20px;
+      background: radial-gradient(#000 0%, transparent 70%);
+      opacity: 0.25; border-radius: 50%; pointer-events: none; filter: blur(10px); z-index: 0;
+    }
+
+    /* Pages */
+    .page {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      transform-origin: left center;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1);
+      backface-visibility: hidden; border-radius: 4px;
+    }
+    .page.flipped { transform: rotateY(-180deg); }
+
+    .face {
+      position: absolute; inset: 0;
+      background-color: #fff;
+      overflow: hidden; border: 2px solid #d1d5db;
+      border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .face img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; }
+
+    /* Controls */
+    .controls {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px;
+      background: rgba(255,255,255,0.95); backdrop-filter: blur(4px);
+      padding: 12px 20px; border-radius: 999px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18); z-index: 40;
+      border: 1px solid rgba(255,255,255,0.6);
+    }
+    .btn-control {
+      background: white; border: 2px solid #1f2937; border-radius: 50%;
+      width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 2px 2px 0 #333; transition: all 0.1s;
+      cursor: pointer; color: #1f2937; padding: 0;
+    }
+    .btn-control:active { transform: translate(2px, 2px); box-shadow: none; }
+    .btn-control:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; border-color: #9ca3af; transform: translate(2px, 2px); }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(6px);
+      transition: opacity 0.35s;
+    }
+    .spinner {
+      width: 52px; height: 52px;
+      border: 4px solid #e5e7eb; border-top-color: #6366f1;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 20px; color: #374151; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading overlay (visible until pages are ready) -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Opening your book…</div>
+  </div>
+
+  <!-- Background -->
+  <div class="bg-particles">
+    <div class="blob"></div><div class="blob"></div><div class="blob"></div>
+    <div class="blob"></div><div class="blob"></div><div class="blob"></div>
+  </div>
+
+  <div id="app">
+    <div class="page-indicator" id="pageLabel">Cover</div>
+
+    <div class="book-wrapper" id="book">
+      <div class="book-shadow"></div>
+      <!-- Pages injected here by JS -->
+    </div>
+
+    <nav class="controls">
+      <!-- Home -->
+      <button class="btn-control" id="btnHome" aria-label="Back to Library" title="Library">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </button>
+      <!-- Restart -->
+      <button class="btn-control" id="btnRestart" aria-label="Restart">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path>
+        </svg>
+      </button>
+      <!-- Prev -->
+      <button class="btn-control" id="btnPrev" aria-label="Previous" disabled>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"></path>
+        </svg>
+      </button>
+      <!-- Zoom -->
+      <button class="btn-control" id="btnZoom" aria-label="Zoom">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line>
+          <line x1="11" x2="11" y1="8" y2="14"></line><line x1="8" x2="14" y1="11" y2="11"></line>
+        </svg>
+      </button>
+      <!-- Next -->
+      <button class="btn-control" id="btnNext" aria-label="Next">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 18 6-6-6-6"></path>
+        </svg>
+      </button>
+    </nav>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const params   = new URLSearchParams(window.location.search);
+    const bookName = params.get('book') || '';
+    if (!bookName) { window.location.href = 'index.html'; }
+
+    const CACHE_MS = 5 * 60 * 1000;
+
+    const rawUrl = path =>
+      `https://raw.githubusercontent.com/${CONFIG.repo}/${CONFIG.branch}/${path}`;
+    const apiUrl = path =>
+      `https://api.github.com/repos/${CONFIG.repo}/contents/${path}?ref=${CONFIG.branch}`;
+
+    function cacheGet(key) {
+      try {
+        const v = localStorage.getItem(key);
+        if (!v) return null;
+        const { d, t } = JSON.parse(v);
+        return (Date.now() - t < CACHE_MS) ? d : (localStorage.removeItem(key), null);
+      } catch { return null; }
+    }
+    function cacheSet(key, d) {
+      try { localStorage.setItem(key, JSON.stringify({ d, t: Date.now() })); } catch {} }
+
+    async function ghFetch(url) {
+      const cached = cacheGet(url);
+      if (cached) return cached;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`GitHub API returned ${r.status}`);
+      const data = await r.json();
+      cacheSet(url, data);
+      return data;
+    }
+
+    const isImg = n => /\.(webp|jpg|jpeg|png|gif)$/i.test(n);
+
+    function prettify(name) {
+      return name.replace(/[-_]/g, ' ')
+        .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
+    function showError(msg) {
+      document.getElementById('loadingOverlay').innerHTML = `
+        <div style="text-align:center;padding:24px;font-family:'Fredoka',sans-serif">
+          <div style="font-size:52px">😕</div>
+          <div style="font-size:20px;color:#1f2937;margin:10px 0">${msg}</div>
+          <a href="index.html" style="font-size:16px;color:#6366f1;text-decoration:none">← Back to library</a>
+        </div>`;
+    }
+
+    async function init() {
+      document.title = `${prettify(bookName)} – StoryBook Tales`;
+
+      const book    = document.getElementById('book');
+      const overlay = document.getElementById('loadingOverlay');
+
+      try {
+        const files = await ghFetch(apiUrl(`${CONFIG.booksPath}/${bookName}`));
+        const images = files
+          .filter(f => f.type === 'file' && isImg(f.name))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        if (!images.length) throw new Error('No images found in this book folder.');
+
+        // Build page elements
+        images.forEach((img, idx) => {
+          const page = document.createElement('div');
+          page.className = 'page';
+          page.style.zIndex = images.length - idx;
+
+          const face = document.createElement('div');
+          face.className = 'face front';
+
+          const el = document.createElement('img');
+          el.src     = rawUrl(`${CONFIG.booksPath}/${bookName}/${img.name}`);
+          el.alt     = idx === 0 ? 'Cover' : `Page ${idx}`;
+          el.loading = idx < 2 ? 'eager' : 'lazy';
+
+          face.appendChild(el);
+          page.appendChild(face);
+          book.appendChild(page);
+        });
+
+        // Fade out overlay
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 380);
+
+        // Start reader
+        startReader(Array.from(book.querySelectorAll('.page')));
+
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    function startReader(pages) {
+      let cur = 0;
+      const book      = document.getElementById('book');
+      const pageLabel = document.getElementById('pageLabel');
+      const btnNext    = document.getElementById('btnNext');
+      const btnPrev    = document.getElementById('btnPrev');
+      const btnRestart = document.getElementById('btnRestart');
+      const btnZoom    = document.getElementById('btnZoom');
+      const btnHome    = document.getElementById('btnHome');
+
+      function label() {
+        if (cur === 0)                return 'Cover';
+        if (cur === pages.length - 1) return 'The End ✨';
+        return `Page ${cur} of ${pages.length - 1}`;
+      }
+      function ui() {
+        pageLabel.textContent = label();
+        btnPrev.disabled = cur === 0;
+        btnNext.disabled = cur === pages.length - 1;
+      }
+      function next() {
+        if (cur < pages.length - 1) { pages[cur].classList.add('flipped'); cur++; ui(); }
+      }
+      function prev() {
+        if (cur > 0) { cur--; pages[cur].classList.remove('flipped'); ui(); }
+      }
+      function restart() {
+        pages.forEach(p => p.classList.remove('flipped'));
+        cur = 0; book.classList.remove('zoomed'); ui();
+      }
+
+      ui();
+
+      btnNext.addEventListener('click', next);
+      btnPrev.addEventListener('click', prev);
+      btnRestart.addEventListener('click', restart);
+      btnZoom.addEventListener('click', () => book.classList.toggle('zoomed'));
+      btnHome.addEventListener('click', () => window.location.href = 'index.html');
+
+      // Keyboard navigation
+      document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight') next();
+        if (e.key === 'ArrowLeft')  prev();
+        if (e.key === 'Escape')     window.location.href = 'index.html';
+      });
+
+      // Touch swipe navigation
+      let touchX = 0;
+      book.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+      book.addEventListener('touchend',   e => {
+        const dx = e.changedTouches[0].clientX - touchX;
+        if (Math.abs(dx) > 50) dx < 0 ? next() : prev();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
